@@ -1,0 +1,8 @@
+cabal-version: 2.4
+name: haskell-to-elm
+version: 0
+
+library
+  build-depends: base, generics-sop
+  exposed-modules: Lib
+  ghc-options: -Wall
