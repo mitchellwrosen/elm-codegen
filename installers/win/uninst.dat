@@ -1,0 +1,7 @@
+Delete "$INSTDIR\bin\elm.exe"
+RmDir "$INSTDIR\bin"
+
+Delete "$INSTDIR\file.ico"
+Delete "$INSTDIR\updatepath.vbs"
+Delete "$INSTDIR\removefrompath.vbs"
+RmDir "$INSTDIR"
