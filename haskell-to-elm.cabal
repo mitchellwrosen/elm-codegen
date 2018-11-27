@@ -3,6 +3,9 @@ name: haskell-to-elm
 version: 0
 
 library
-  build-depends: base, generics-sop
+  build-depends:
+      base
+    , elm
+    , generics-sop
   exposed-modules: Lib
   ghc-options: -Wall

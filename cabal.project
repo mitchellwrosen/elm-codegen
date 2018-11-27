@@ -1,0 +1,2 @@
+packages: haskell-to-elm.cabal
+          elm/elm.cabal

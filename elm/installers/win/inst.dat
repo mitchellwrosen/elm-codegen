@@ -1,7 +1,0 @@
-SetOutPath "$INSTDIR\bin"
-File "${FILES_SOURCE_PATH}\bin\elm.exe"
-
-SetOutPath "$INSTDIR"
-File "file.ico"
-File "updatepath.vbs"
-File "removefrompath.vbs"
