@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -Wall #-}
+{-# LANGUAGE DeriveLift #-}
 {-# LANGUAGE OverloadedStrings #-}
 module AST.Canonical
   ( Expr, Expr_(..)
@@ -58,6 +59,8 @@ import qualified Data.ByteString as B
 import qualified Data.List as List
 import qualified Data.Map as Map
 import Data.Text (Text)
+import Instances.TH.Lift ()
+import Language.Haskell.TH.Syntax (Lift)
 
 import qualified AST.Utils.Binop as Binop
 import qualified AST.Module.Name as ModuleName
@@ -196,15 +199,18 @@ data Type
   | TUnit
   | TTuple Type Type (Maybe Type)
   | TAlias ModuleName.Canonical N.Name [(N.Name, Type)] AliasType
+  deriving (Lift, Show)
 
 
 data AliasType
   = Holey Type
   | Filled Type
+  deriving (Lift, Show)
 
 
 data FieldType =
   FieldType {-# UNPACK #-} !Word16 Type
+  deriving (Lift, Show)
 
 
 -- NOTE: The Word16 marks the source order, but it may not be available

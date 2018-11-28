@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -Wall #-}
+{-# LANGUAGE DeriveLift #-}
 {-# LANGUAGE OverloadedStrings #-}
 module AST.Module.Name
   ( Canonical(..)
@@ -16,6 +17,7 @@ module AST.Module.Name
 import Prelude hiding (maybe)
 import Control.Monad (liftM2)
 import Data.Binary
+import Language.Haskell.TH.Syntax (Lift)
 
 import qualified Elm.Name as N
 import qualified Elm.Package as Pkg
@@ -30,7 +32,7 @@ data Canonical =
     { _package :: !Pkg.Name
     , _module :: !N.Name
     }
-    deriving (Ord)
+    deriving (Lift, Ord, Show)
 
 
 instance Eq Canonical where

@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -Wall #-}
+{-# LANGUAGE DeriveLift #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Elm.Name
   ( Name
@@ -46,6 +47,8 @@ import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
 import Data.Word (Word8)
 import Foreign.ForeignPtr (ForeignPtr)
+import Instances.TH.Lift ()
+import Language.Haskell.TH.Syntax (Lift)
 
 
 
@@ -53,7 +56,7 @@ import Foreign.ForeignPtr (ForeignPtr)
 
 
 newtype Name = Name { _name :: Text.Text }
-  deriving (Eq, Ord)
+  deriving (Eq, Lift, Ord, Show)
 
 
 length :: Name -> Int

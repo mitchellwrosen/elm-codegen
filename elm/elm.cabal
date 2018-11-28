@@ -40,7 +40,9 @@ Library
     mtl >= 2.2.1 && < 3,
     parsec,
     scientific,
+    template-haskell,
     text >= 1 && < 2,
+    th-lift-instances,
     unordered-containers,
     utf8-string,
     vector

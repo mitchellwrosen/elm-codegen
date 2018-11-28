@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -Wall #-}
+{-# LANGUAGE DeriveLift #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Elm.Package
   ( Name(..)
@@ -38,6 +39,8 @@ import qualified Data.Text.Lazy.Builder as B (singleton, toLazyText)
 import qualified Data.Text.Lazy.Builder.Int as B (decimal)
 import Data.Text (Text)
 import Data.Word (Word16)
+import Instances.TH.Lift ()
+import Language.Haskell.TH.Syntax (Lift)
 import System.FilePath ((</>))
 
 import qualified Elm.Name as N
@@ -54,7 +57,7 @@ data Name =
     { _author :: !Text
     , _project :: !Text
     }
-    deriving (Eq, Ord)
+    deriving (Eq, Lift, Ord, Show)
 
 
 data Package =
@@ -62,7 +65,7 @@ data Package =
     { _name :: !Name
     , _version :: !Version
     }
-    deriving (Eq, Ord)
+    deriving (Eq, Lift, Ord, Show)
 
 
 
@@ -263,7 +266,7 @@ data Version =
     , _minor :: {-# UNPACK #-} !Word16
     , _patch :: {-# UNPACK #-} !Word16
     }
-    deriving (Eq, Ord)
+    deriving (Eq, Lift, Ord, Show)
 
 
 initialVersion :: Version

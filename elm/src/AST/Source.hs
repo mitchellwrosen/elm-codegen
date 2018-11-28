@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -Wall #-}
+{-# LANGUAGE DeriveLift #-}
 module AST.Source
   ( Expr, Expr_(..), VarType(..)
   , Decl, Decl_(..)
@@ -20,6 +21,7 @@ module AST.Source
 
 import qualified Data.ByteString as B
 import Data.Text (Text)
+import Language.Haskell.TH.Syntax (Lift)
 
 import qualified AST.Utils.Binop as Binop
 import qualified AST.Utils.Shader as Shader
@@ -112,6 +114,7 @@ data Type_
   | TRecord [(A.Located N.Name, Type)] (Maybe (A.Located N.Name))
   | TUnit
   | TTuple Type Type [Type]
+  deriving (Lift, Show)
 
 
 

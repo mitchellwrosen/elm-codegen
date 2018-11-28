@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveLift #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Reporting.Region
   ( Region(..)
@@ -12,6 +13,7 @@ module Reporting.Region
 
 import qualified Json.Encode as Json
 import Data.Binary (Binary, get, put)
+import Language.Haskell.TH.Syntax (Lift)
 
 
 
@@ -23,7 +25,7 @@ data Region =
     { _start :: !Position
     , _end :: !Position
     }
-    deriving (Eq, Ord)
+    deriving (Eq, Lift, Ord, Show)
 
 
 data Position =
@@ -31,7 +33,7 @@ data Position =
     { _line :: !Int
     , _column :: !Int
     }
-    deriving (Eq, Ord)
+    deriving (Eq, Lift, Ord, Show)
 
 
 merge :: Region -> Region -> Region

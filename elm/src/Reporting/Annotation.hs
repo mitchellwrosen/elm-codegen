@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -Wall #-}
+{-# LANGUAGE DeriveLift #-}
 module Reporting.Annotation
   ( Located(..)
   , at, merge
@@ -10,6 +11,7 @@ module Reporting.Annotation
   where
 
 
+import Language.Haskell.TH.Syntax (Lift)
 import Prelude hiding (map, traverse)
 import qualified Reporting.Region as R
 
@@ -20,6 +22,7 @@ import qualified Reporting.Region as R
 
 data Located a =
   At R.Region a
+  deriving (Lift, Show)
 
 
 

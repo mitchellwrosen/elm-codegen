@@ -4,8 +4,30 @@ version: 0
 
 library
   build-depends:
-      base
+      ansi-wl-pprint
+    , base
     , elm
-    , generics-sop
+    , template-haskell
+    , transformers
   exposed-modules: Lib
   ghc-options: -Wall
+
+test-suite tests
+  build-depends:
+      base
+    , haskell-to-elm
+    , neat-interpolation
+    , template-haskell
+    , text
+  default-language:
+    Haskell2010
+  ghc-options:
+    -Wall
+  hs-source-dirs:
+    test
+  main-is:
+    Main.hs
+  other-modules:
+    Types
+  type:
+    exitcode-stdio-1.0
