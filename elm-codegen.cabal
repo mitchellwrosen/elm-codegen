@@ -1,6 +1,6 @@
 cabal-version: 2.4
-name: haskell-to-elm
-version: 0
+name: elm-codegen
+version: 0.19.0
 
 library
   build-depends:
@@ -15,7 +15,7 @@ library
 test-suite tests
   build-depends:
       base
-    , haskell-to-elm
+    , elm-codegen
     , neat-interpolation
     , template-haskell
     , text

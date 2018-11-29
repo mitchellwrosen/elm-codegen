@@ -4,7 +4,10 @@
              OverloadedStrings, PolyKinds, ScopedTypeVariables, TupleSections,
              TypeApplications, ViewPatterns, UnicodeSyntax #-}
 
-module Lib where
+module Lib
+  ( declareElmType
+  , declareElmTypeAlias
+  ) where
 
 import Control.Monad
 import Control.Monad.Trans.Class (lift)
@@ -29,10 +32,12 @@ import qualified Text.PrettyPrint.ANSI.Leijen as Pretty
 -- Template Haskell functions
 --------------------------------------------------------------------------------
 
+-- | Declare an Elm @type@.
 declareElmType :: TH.Name -> TH.Q TH.Exp
 declareElmType =
   declareElmType_ False
 
+-- | Declare an Elm @type alias@.
 declareElmTypeAlias :: TH.Name -> TH.Q TH.Exp
 declareElmTypeAlias =
   declareElmType_ True
@@ -119,9 +124,9 @@ dataDecToElmDec ::
 dataDecToElmDec alias ctx name tvs mkind cons = do
   -- Three checks on the Haskell data declaration:
   --
-  -- * It has no data type context
-  -- * Its type variables are kind Type
-  -- * It's kind Type
+  -- ∙ It has no data type context
+  -- ∙ Its type variables are kind Type
+  -- ∙ It's kind Type
   assertNoContext ctx
   assertTyvarsKindType tvs
   assertKindType mkind

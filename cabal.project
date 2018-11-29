@@ -1,2 +1,2 @@
-packages: haskell-to-elm.cabal
+packages: elm-codegen.cabal
           elm/elm.cabal
