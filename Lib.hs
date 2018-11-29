@@ -6,7 +6,6 @@
 
 module Lib where
 
-import Control.Arrow
 import Control.Monad
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Except
@@ -191,15 +190,14 @@ dataDecToElmType name tvs cons =
     <*> pure (tyvarsToElmNames tvs)
     <*> traverse conToElmCon cons
 
-recordToElmRecord :: [TH.VarBangType] -> ExceptT String TH.Q Elm.Type
-recordToElmRecord fields =
-  elm_TRecord <$>
-    (for fields $ \(fname, _bang, fty) ->
-      (fname ,) <$> typeToElmType fty)
-
 tyvarsToElmNames :: [TH.TyVarBndr] -> [Elm.Name]
 tyvarsToElmNames =
   map (nameToElmName . tyVarBndrName)
+  where
+    tyVarBndrName :: TH.TyVarBndr -> TH.Name
+    tyVarBndrName = \case
+      TH.PlainTV  name   -> name
+      TH.KindedTV name _ -> name
 
 dataDecToElmTypeAlias ::
      TH.Name
@@ -208,7 +206,7 @@ dataDecToElmTypeAlias ::
   -> ExceptT String TH.Q ElmTypeAlias
 dataDecToElmTypeAlias name tvs = \case
   [TH.RecC _ fields] -> do
-    ty <- recordToElmRecord fields
+    ty <- recordToElmType fields
     pure (ElmTypeAlias (nameToElmName name) (tyvarsToElmNames tvs) ty)
 
   _ ->
@@ -225,7 +223,7 @@ conToElmCon con0 =
         traverse (typeToElmType . snd) fields
 
     TH.RecC name fields -> do
-      ty <- recordToElmRecord fields
+      ty <- recordToElmType fields
       pure (ElmConstructor (nameToElmName name) [ty])
 
     _ ->
@@ -236,10 +234,8 @@ typeToElmType ty0 =
   case ty0 of
     TH.AppT t1 t2 ->
       case t1 of
-        TH.AppT TH.ArrowT t1' ->
-          elm_TLambda
-            <$> typeToElmType t1'
-            <*> typeToElmType t2
+        TH.AppT TH.ArrowT t1' -> do
+          arrowToElmType t1' t2
 
         _ ->
           case reverse (t2 : uncurryApp t1) of
@@ -250,7 +246,7 @@ typeToElmType ty0 =
               throwE "Partially applied (->) not supported"
 
             TH.ConT name : ts ->
-              elm_TType name <$> traverse typeToElmType ts
+              typeConstructorToElmType name ts
 
             TH.ConstraintT : _ ->
               error (show ty0)
@@ -264,9 +260,8 @@ typeToElmType ty0 =
             TH.InfixT _ _ _ : _ ->
               throwE "Type operators not supported"
 
-            TH.ListT : [ty] -> do
-              ty' <- typeToElmType ty
-              pure (elm_TType (TH.mkName "List") [ty'])
+            TH.ListT : [ty] ->
+              typeConstructorToElmType (TH.mkName "List") [ty]
 
             TH.LitT _ : _ ->
               error (show ty0)
@@ -295,19 +290,11 @@ typeToElmType ty0 =
             TH.StarT : _ ->
               error (show ty0)
 
-            TH.TupleT n : ts ->
-              case ts of
-                t1' : t2' : ts' ->
-                  if n == length ts
-                    then
-                      elm_TTuple
-                        <$> typeToElmType t1'
-                        <*> typeToElmType t2'
-                        <*> traverse typeToElmType ts'
-                    else
-                      throwE "Partially applied tuple not supported"
-                _ ->
-                  error (show ty0)
+            TH.TupleT n : ts
+              | n == length ts ->
+                  tupleToElmType ts
+              | otherwise ->
+                  throwE "Partially applied tuple not supported"
 
             TH.UInfixT _ _ _ : _ ->
               throwE "Type operators not supported"
@@ -331,7 +318,7 @@ typeToElmType ty0 =
       throwE "(->) not supported"
 
     TH.ConT name ->
-      pure (elm_TType name [])
+      typeConstructorToElmType name []
 
     TH.ConstraintT ->
       throwE "Constriant kind not supported"
@@ -373,7 +360,7 @@ typeToElmType ty0 =
       throwE "Type kind not supported"
 
     TH.TupleT 0 ->
-      pure elm_TUnit
+      pure (noloc Elm.TUnit)
 
     TH.TupleT _ ->
       throwE ("Tuple not supported: " ++ show ty0)
@@ -388,7 +375,7 @@ typeToElmType ty0 =
       throwE "Unboxed tuple not supported"
 
     TH.VarT name ->
-      pure (elm_TVar name)
+      pure (noloc (Elm.TVar (nameToElmName name)))
 
     TH.WildCardT ->
       throwE "Wildcard not supported"
@@ -412,38 +399,41 @@ nameToElmName :: TH.Name -> Elm.Name
 nameToElmName =
   Elm.Name.fromString . TH.nameBase
 
-elm_TLambda :: Elm.Type -> Elm.Type -> Elm.Type
-elm_TLambda t1 t2 =
-  noloc (Elm.TLambda t1 t2)
+arrowToElmType :: TH.Type -> TH.Type -> ExceptT String TH.Q Elm.Type
+arrowToElmType t1 t2 = do
+  t1' <- typeToElmType t1
+  t2' <- typeToElmType t2
+  pure (noloc (Elm.TLambda t1' t2'))
 
-elm_TRecord :: [(TH.Name, Elm.Type)] -> Elm.Type
-elm_TRecord fields =
-  noloc
-    (Elm.TRecord
-      (map (Elm.Annotation.At Elm.Region.zero . nameToElmName *** id) fields)
-      Nothing)
+recordToElmType :: [TH.VarBangType] -> ExceptT String TH.Q Elm.Type
+recordToElmType fields = do
+  fields' <-
+    for fields $ \(fname, _bang, fty) ->
+      (noloc (nameToElmName fname) ,) <$> typeToElmType fty
 
-elm_TTuple :: Elm.Type -> Elm.Type -> [Elm.Type] -> Elm.Type
-elm_TTuple t1 t2 ts =
-  noloc (Elm.TTuple t1 t2 ts)
+  pure (noloc (Elm.TRecord fields' Nothing))
 
-elm_TType :: TH.Name -> [Elm.Type] -> Elm.Type
-elm_TType name args =
-  noloc (Elm.TType Elm.Region.zero (nameToElmName name) args)
+tupleToElmType :: [TH.Type] -> ExceptT String TH.Q Elm.Type
+tupleToElmType = \case
+  [t1, t2] -> do
+    t1' <- typeToElmType t1
+    t2' <- typeToElmType t2
+    pure (noloc (Elm.TTuple t1' t2' []))
 
-elm_TVar :: TH.Name -> Elm.Type
-elm_TVar name =
-  noloc (Elm.TVar (nameToElmName name))
+  [t1, t2, t3] -> do
+    t1' <- typeToElmType t1
+    t2' <- typeToElmType t2
+    t3' <- typeToElmType t3
+    pure (noloc (Elm.TTuple t1' t2' [t3']))
 
-elm_TUnit :: Elm.Type
-elm_TUnit =
-  noloc Elm.TUnit
+  _ ->
+    throwE "Only 2- and 3-element tuples are supported"
+
+typeConstructorToElmType :: TH.Name -> [TH.Type] -> ExceptT String TH.Q Elm.Type
+typeConstructorToElmType name args = do
+  noloc . Elm.TType Elm.Region.zero (nameToElmName name) <$>
+    traverse typeToElmType args
 
 noloc :: a -> Elm.Annotation.Located a
 noloc =
   Elm.Annotation.At Elm.Region.zero
-
-tyVarBndrName :: TH.TyVarBndr -> TH.Name
-tyVarBndrName = \case
-  TH.PlainTV  name   -> name
-  TH.KindedTV name _ -> name
