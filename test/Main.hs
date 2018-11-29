@@ -1,114 +1,34 @@
 {-# LANGUAGE QuasiQuotes, TemplateHaskell #-}
 
 import Control.Monad
-import Data.Text (Text, stripEnd, unpack)
-import Lib
-import NeatInterpolation
+import Language.Elm.Codegen
 import Types
 
 main :: IO ()
 main = do
-  run $(declareElmType ''T1) [text|
-    type T1 |]
+  $(fromName ''T1) === ElmDecDataType (ElmDataType "T1" [] [])
+  $(fromName ''T2) === ElmDecDataType (ElmDataType "T2" [] [ElmConstructor "T2" []])
+  $(fromName ''T3) === ElmDecDataType (ElmDataType "T3" [] [ElmConstructor "T3" [ElmTypeUnit]])
+  $(fromName ''T4) === ElmDecDataType (ElmDataType "T4" [] [ElmConstructor "T4" [ElmTypeCon "Int" [], ElmTypeCon "Bool" [], ElmTypeCon "String" []]])
+  $(fromName ''T5) === ElmDecDataType (ElmDataType "T5" [] [ElmConstructor "T5_1" [], ElmConstructor "T5_2" [], ElmConstructor "T5_3" []])
+  $(fromName ''T6) === ElmDecDataType (ElmDataType "T6" ["a"] [ElmConstructor "T6" []])
+  $(fromName ''T7) === ElmDecDataType (ElmDataType "T7" ["foo"] [ElmConstructor "T7" []])
+  $(fromName ''T8) === ElmDecDataType (ElmDataType "T8" ["a"] [ElmConstructor "T8" [ElmTypeVar "a"]])
+  $(fromName ''T9) === ElmDecDataType (ElmDataType "T9" ["a"] [ElmConstructor "T9" [ElmTypeVar "a", ElmTypeVar "a"]])
+  $(fromName ''T10) === ElmDecDataType (ElmDataType "T10" ["a"] [ElmConstructor "T10_1" [], ElmConstructor "T10_2" [ElmTypeVar "a"]])
+  $(fromName ''T11) === ElmDecDataType (ElmDataType "T11" [] [ElmConstructor "T11" [ElmTypeCon "List" [ElmTypeCon "Int" []]]])
+  $(fromName ''T12) === ElmDecDataType (ElmDataType "T12" ["a"] [ElmConstructor "T12" [ElmTypeCon "List" [ElmTypeVar "a"]]])
+  $(fromName ''T13) === ElmDecDataType (ElmDataType "T13" [] [ElmConstructor "T13" [ElmTypeTuple (ElmTypeCon "Int" []) (ElmTypeCon "Int" []) Nothing]])
+  $(fromName ''T14) === ElmDecDataType (ElmDataType "T14" [] [ElmConstructor "T14" [ElmTypeTuple (ElmTypeCon "Int" []) (ElmTypeCon "Int" []) (Just (ElmTypeCon "Int" []))]])
+  $(fromName ''T15) === ElmDecDataType (ElmDataType "T15" [] [ElmConstructor "T15" [ElmTypeLambda (ElmTypeCon "Int" []) (ElmTypeCon "Bool" [])]])
+  $(fromName ''T16) === ElmDecDataType (ElmDataType "T16" [] [ElmConstructor "T16" [ElmTypeLambda (ElmTypeCon "Int" []) (ElmTypeLambda (ElmTypeCon "Bool" []) (ElmTypeCon "Int" []))]])
+  $(fromName ''T17) === ElmDecDataType (ElmDataType "T17" [] [ElmConstructor "T17" [ElmTypeRecord [("t17", ElmTypeUnit)] Nothing]])
+  $(fromName ''T18) === ElmDecDataType (ElmDataType "T18" [] [ElmConstructor "T18" [ElmTypeRecord [("t18_1", ElmTypeCon "Int" []), ("t18_2", ElmTypeCon "Bool" [])] Nothing]])
+  $(fromName ''T19) === ElmDecTypeAlias (ElmTypeAlias "T19" [] ElmTypeUnit)
+  $(fromName ''T20) === ElmDecDataType (ElmDataType "T20" [] [ElmConstructor "T20" [ElmTypeRecord [("t20", ElmTypeCon "Int" [])] Nothing]])
+  $(fromName ''T21) === ElmDecDataType (ElmDataType "T21" ["a"] [ElmConstructor "T21" [ElmTypeRecord [("t21", ElmTypeVar "a")] Nothing]])
 
-  run $(declareElmType ''T2) [text|
-    type T2 =
-      T2 |]
-
-  run $(declareElmType ''T3) [text|
-    type T3 =
-      T3 () |]
-
-  run $(declareElmType ''T4) [text|
-    type T4 =
-      T4 Int Bool String |]
-
-  run $(declareElmType ''T5) [text|
-    type T5 =
-      T5_1
-      | T5_2
-      | T5_3 |]
-
-  run $(declareElmType ''T6) [text|
-    type T6 a =
-      T6 |]
-
-  run $(declareElmType ''T7) [text|
-    type T7 foo =
-      T7 |]
-
-  run $(declareElmType ''T8) [text|
-    type T8 a =
-      T8 a |]
-
-  run $(declareElmType ''T9) [text|
-    type T9 a =
-      T9 a a |]
-
-  run $(declareElmType ''T10) [text|
-    type T10 a =
-      T10_1
-      | T10_2 a |]
-
-  run $(declareElmType ''T11) [text|
-    type T11 =
-      T11 (List Int) |]
-
-  run $(declareElmType ''T12) [text|
-    type T12 a =
-      T12 (List a) |]
-
-  run $(declareElmType ''T13) [text|
-    type T13 =
-      T13 ( Int, Int ) |]
-
-  run $(declareElmType ''T14) [text|
-    type T14 =
-      T14 ( Int, Int, Int ) |]
-
-  run $(declareElmType ''T15) [text|
-    type T15 =
-      T15 (Int -> Bool) |]
-
-  run $(declareElmType ''T16) [text|
-    type T16 =
-      T16 (Int -> Bool -> Int) |]
-
-  run $(declareElmType ''T17) [text|
-    type T17 =
-      T17 { t17 : () } |]
-
-  run $(declareElmTypeAlias ''T17) [text|
-    type alias T17 =
-      { t17 : () } |]
-
-  run $(declareElmType ''T18) [text|
-    type T18 =
-      T18 { t18_1 : Int
-          , t18_2 : Bool
-          } |]
-
-  run $(declareElmTypeAlias ''T18) [text|
-    type alias T18 =
-      { t18_1 : Int, t18_2 : Bool } |]
-
-  run $(declareElmType ''T19) [text|
-    type T19 =
-      T19 () |]
-
-  run $(declareElmTypeAlias ''T19) [text|
-    type alias T19 =
-      () |]
-
-  run $(declareElmType ''T20) [text|
-    type T20 =
-      T20 { t20 : Int } |]
-
-  run $(declareElmTypeAlias ''T20) [text|
-    type alias T20 =
-      { t20 : Int } |]
-
-run :: String -> Text -> IO ()
-run actual expected =
-  unless (actual == unpack (stripEnd expected))
-    (fail actual)
+(===) :: (Eq a, Show a) => a -> a -> IO ()
+actual === expected =
+  unless (actual == expected)
+    (fail ("`" ++ show expected ++ "' /= `" ++ show actual ++ "'"))

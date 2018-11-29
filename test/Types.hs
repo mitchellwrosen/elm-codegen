@@ -20,3 +20,4 @@ data T17 = T17 { t17 :: () }
 data T18 = T18 { t18_1 :: Int, t18_2 :: Bool }
 type T19 = ()
 newtype T20 = T20 { t20 :: Int }
+data T21 a = T21 { t21 :: a }
