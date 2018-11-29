@@ -1,12 +1,12 @@
 {-# LANGUAGE DeriveLift, LambdaCase, TupleSections #-}
 
--- | @Haskell AST -> Maybe (Elm AST)@
-
 module Language.Elm.Codegen
-  ( fromName
+  ( -- * Haskell → Elm
+    fromName
   , fromInfo
   , fromDec
   , fromType
+    -- * Types
   , ElmDec(..)
   , ElmDataType(..)
   , ElmTypeAlias(..)
@@ -48,7 +48,7 @@ data ElmType
 -- | Construct an Elm declaration from a Haskell name.
 --
 -- @
--- $(fromName ''Foo) :: 'ElmDec'
+-- \$(fromName ''Foo) :: 'ElmDec'
 -- @
 fromName :: Name -> Q Exp
 fromName name = do

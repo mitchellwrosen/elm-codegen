@@ -1,2 +1,1 @@
-packages: elm-codegen.cabal
-          elm/elm.cabal
+packages: .
