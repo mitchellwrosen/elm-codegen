@@ -2,7 +2,7 @@
              DeriveGeneric, DerivingStrategies, FlexibleContexts,
              FlexibleInstances, InstanceSigs, KindSignatures, LambdaCase,
              OverloadedStrings, PolyKinds, ScopedTypeVariables, TupleSections,
-             TypeApplications, UnicodeSyntax #-}
+             TypeApplications, ViewPatterns, UnicodeSyntax #-}
 
 module Lib where
 
@@ -130,11 +130,14 @@ infoToElmDec alias = \case
         TH.DataD ctx name tvs mkind cons _ ->
           dataDecToElmDec alias ctx name tvs mkind cons
 
+        TH.FunD _ _ ->
+          throwE "Cannot generate an Elm type from a function"
+
         TH.NewtypeD ctx name tvs mkind cons _ ->
           dataDecToElmDec alias ctx name tvs mkind [cons]
 
-        _ ->
-          error (show dec)
+        TH.TySynD name tvs ty ->
+          tysynToElmDec alias name tvs ty
 
     _ ->
       throwE "Not a type constructor"
@@ -211,6 +214,43 @@ dataDecToElmTypeAlias name tvs = \case
 
   _ ->
     throwE "Cannot make a type alias from a non-record type"
+
+tysynToElmDec ::
+     Bool
+  -> TH.Name
+  -> [TH.TyVarBndr]
+  -> TH.Type
+  -> ExceptT String TH.Q ElmDec
+tysynToElmDec alias name tvs ty = do
+  assertTyvarsKindType tvs
+
+  if alias
+    then ElmDecTypeAlias <$> tysynToElmTypeAlias name tvs ty
+    else ElmDecType <$> tysynToElmType name tvs ty
+
+tysynToElmTypeAlias ::
+     TH.Name
+  -> [TH.TyVarBndr]
+  -> TH.Type
+  -> ExceptT String TH.Q ElmTypeAlias
+tysynToElmTypeAlias name tvs ty =
+  ElmTypeAlias
+    <$> pure (nameToElmName name)
+    <*> pure (tyvarsToElmNames tvs)
+    <*> typeToElmType ty
+
+tysynToElmType ::
+     TH.Name
+  -> [TH.TyVarBndr]
+  -> TH.Type
+  -> ExceptT String TH.Q ElmType
+tysynToElmType (nameToElmName -> name) tvs ty = do
+  ty' <- typeToElmType ty
+  pure
+    (ElmType
+      name
+      (tyvarsToElmNames tvs)
+      [ElmConstructor name [ty']])
 
 conToElmCon :: TH.Con -> ExceptT String TH.Q ElmConstructor
 conToElmCon con0 =
