@@ -17,3 +17,4 @@ data T14 = T14 (Int, Int, Int)
 data T15 = T15 (Int -> Bool)
 data T16 = T16 (Int -> Bool -> Int)
 data T17 = T17 { t17 :: () }
+data T18 = T18 { t18_1 :: Int, t18_2 :: Bool }

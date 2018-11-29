@@ -78,6 +78,20 @@ main = do
     type T17 =
       T17 { t17 : () } |]
 
+  run $(declareElmTypeAlias ''T17) [text|
+    type alias T17 =
+      { t17 : () } |]
+
+  run $(declareElmType ''T18) [text|
+    type T18 =
+      T18 { t18_1 : Int
+          , t18_2 : Bool
+          } |]
+
+  run $(declareElmTypeAlias ''T18) [text|
+    type alias T18 =
+      { t18_1 : Int, t18_2 : Bool } |]
+
 run :: String -> Text -> IO ()
 run actual expected =
   unless (actual == unpack (stripEnd expected))

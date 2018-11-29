@@ -25,12 +25,30 @@ import qualified Reporting.Region as Elm.Region
 import qualified Reporting.Render.Type as Elm.Render
 import qualified Text.PrettyPrint.ANSI.Leijen as Pretty
 
-data Union
-  = Union Elm.Name [Elm.Name] [(Elm.Name, [Elm.Type])]
+data ElmDec
+  = ElmDecType ElmType
+  | ElmDecTypeAlias ElmTypeAlias
   deriving (Show)
 
-prettyUnion :: Union -> Pretty.Doc
-prettyUnion (Union name tvs cons) =
+data ElmType
+  = ElmType Elm.Name [Elm.Name] [ElmConstructor]
+  deriving (Show)
+
+data ElmTypeAlias
+  = ElmTypeAlias Elm.Name [Elm.Name] Elm.Type
+  deriving (Show)
+
+data ElmConstructor
+  = ElmConstructor Elm.Name [Elm.Type]
+  deriving (Show)
+
+prettyElmDec :: ElmDec -> Pretty.Doc
+prettyElmDec = \case
+  ElmDecType ty -> prettyElmType ty
+  ElmDecTypeAlias ty -> prettyElmTypeAlias ty
+
+prettyElmType :: ElmType -> Pretty.Doc
+prettyElmType (ElmType name tvs cons) =
   Pretty.hsep ("type" : map prettyName (name : tvs)) <>
     if null cons
       then
@@ -41,7 +59,7 @@ prettyUnion (Union name tvs cons) =
           , "="
           , Pretty.line
           , cons
-              & map prettyCon
+              & map prettyElmConstructor
               & mapTail (\p -> "|" <> Pretty.space <> p)
               & Pretty.vsep
               & Pretty.indent 2
@@ -50,8 +68,22 @@ prettyUnion (Union name tvs cons) =
     mapTail _ []     = []
     mapTail f (x:xs) = x : map f xs
 
-prettyCon :: (Elm.Name, [Elm.Type]) -> Pretty.Doc
-prettyCon (name, fields) =
+prettyElmTypeAlias :: ElmTypeAlias -> Pretty.Doc
+prettyElmTypeAlias (ElmTypeAlias name tvs ty) =
+  mconcat
+    [ "type"
+    , Pretty.space
+    , "alias"
+    , Pretty.space
+    , Pretty.hsep (map prettyName (name : tvs))
+    , Pretty.space
+    , "="
+    , Pretty.line
+    , Pretty.indent 2 (Elm.Render.srcToDoc Elm.Render.None ty)
+    ]
+
+prettyElmConstructor :: ElmConstructor -> Pretty.Doc
+prettyElmConstructor (ElmConstructor name fields) =
   Pretty.hsep
     (prettyName name :
       map (Elm.Render.srcToDoc Elm.Render.App) fields)
@@ -62,36 +94,45 @@ prettyName =
 
 declareElmType :: TH.Name -> TH.Q TH.Exp
 declareElmType =
-  declareElmType_ >=>
+  declareElmType_ False
+
+declareElmTypeAlias :: TH.Name -> TH.Q TH.Exp
+declareElmTypeAlias =
+  declareElmType_ True
+
+declareElmType_ :: Bool -> TH.Name -> TH.Q TH.Exp
+declareElmType_ alias =
+  declareElmType__ alias >=>
     TH.lift
       . ($ "")
       . Pretty.displayS
       . Pretty.renderPretty 0.4 80
-      . prettyUnion
+      . prettyElmDec
 
-declareElmType_ :: TH.Name -> TH.Q Union
-declareElmType_ name =
-  runExceptT (nameToElmUnion name)
+declareElmType__ :: Bool -> TH.Name -> TH.Q ElmDec
+declareElmType__ alias name =
+  runExceptT (nameToElmDec alias name)
     >>= either fail pure
 
-nameToElmUnion ::
-    TH.Name
-  -> ExceptT String TH.Q Union
-nameToElmUnion name =
-  lift (TH.reify name) >>= infoToElmUnion name
+nameToElmDec ::
+     Bool
+  -> TH.Name
+  -> ExceptT String TH.Q ElmDec
+nameToElmDec alias =
+  lift . TH.reify >=> infoToElmDec alias
 
-infoToElmUnion ::
-    TH.Name
+infoToElmDec ::
+     Bool
   -> TH.Info
-  -> ExceptT String TH.Q Union
-infoToElmUnion name = \case
+  -> ExceptT String TH.Q ElmDec
+infoToElmDec alias = \case
     TH.TyConI dec ->
       case dec of
-        TH.DataD ctx _ tvs mkind cons _ ->
-          dataDeclToElmType ctx name tvs mkind cons
+        TH.DataD ctx name tvs mkind cons _ ->
+          dataDecToElmDec alias ctx name tvs mkind cons
 
-        TH.NewtypeD ctx _ tvs mkind cons _ ->
-          dataDeclToElmType ctx name tvs mkind [cons]
+        TH.NewtypeD ctx name tvs mkind cons _ ->
+          dataDecToElmDec alias ctx name tvs mkind [cons]
 
         _ ->
           error (show dec)
@@ -99,59 +140,93 @@ infoToElmUnion name = \case
     _ ->
       throwE "Not a type constructor"
 
-dataDeclToElmType ::
-     TH.Cxt
+dataDecToElmDec ::
+     Bool
+  -> TH.Cxt
   -> TH.Name
   -> [TH.TyVarBndr]
   -> Maybe TH.Type
   -> [TH.Con]
-  -> ExceptT String TH.Q Union
-dataDeclToElmType ctx name tvs mkind cons = do
-  unless (null ctx)
-    (throwE "Data type context not supported")
+  -> ExceptT String TH.Q ElmDec
+dataDecToElmDec alias ctx name tvs mkind cons = do
+  -- Three checks on the Haskell data declaration:
+  --
+  -- * It has no data type context
+  -- * Its type variables are kind Type
+  -- * It's kind Type
+  assertNoContext ctx
+  assertTyvarsKindType tvs
+  assertKindType mkind
 
-  for_ tvs $ \case
-    TH.PlainTV _ ->
-      pure ()
+  if alias
+    then ElmDecTypeAlias <$> dataDecToElmTypeAlias name tvs cons
+    else ElmDecType <$> dataDecToElmType name tvs cons
 
-    TH.KindedTV _ kind ->
-      case kind of
-        TH.StarT ->
-          pure ()
+assertNoContext :: TH.Cxt -> ExceptT String TH.Q ()
+assertNoContext = \case
+  [] -> pure ()
+  _  -> throwE "Data type context not supported"
 
-        _ ->
-          throwE "Type variables may only have kind Type"
+assertTyvarsKindType :: [TH.TyVarBndr] -> ExceptT String TH.Q ()
+assertTyvarsKindType =
+  traverse_ $ \case
+    TH.PlainTV _ -> pure ()
+    TH.KindedTV _ TH.StarT -> pure ()
+    TH.KindedTV _ _ -> throwE "Type variables may only have kind Type"
 
-  for_ mkind $ \case
-    TH.StarT ->
-      pure ()
+assertKindType :: Maybe TH.Kind -> ExceptT String TH.Q ()
+assertKindType =
+  traverse_ $ \case
+    TH.StarT -> pure ()
+    _ -> throwE "Type may only have kind Type"
 
-    _ ->
-      throwE "Type may only have kind Type"
+dataDecToElmType ::
+     TH.Name
+  -> [TH.TyVarBndr]
+  -> [TH.Con]
+  -> ExceptT String TH.Q ElmType
+dataDecToElmType name tvs cons =
+  ElmType
+    <$> pure (nameToElmName name)
+    <*> pure (tyvarsToElmNames tvs)
+    <*> traverse conToElmCon cons
 
-  cons' <-
-    traverse conToElmCon cons
+recordToElmRecord :: [TH.VarBangType] -> ExceptT String TH.Q Elm.Type
+recordToElmRecord fields =
+  elm_TRecord <$>
+    (for fields $ \(fname, _bang, fty) ->
+      (fname ,) <$> typeToElmType fty)
 
-  pure
-    (Union
-      (nameToElmName name)
-      (map (nameToElmName . tyVarBndrName) tvs)
-      cons')
+tyvarsToElmNames :: [TH.TyVarBndr] -> [Elm.Name]
+tyvarsToElmNames =
+  map (nameToElmName . tyVarBndrName)
 
-conToElmCon :: TH.Con -> ExceptT String TH.Q (Elm.Name, [Elm.Type])
+dataDecToElmTypeAlias ::
+     TH.Name
+  -> [TH.TyVarBndr]
+  -> [TH.Con]
+  -> ExceptT String TH.Q ElmTypeAlias
+dataDecToElmTypeAlias name tvs = \case
+  [TH.RecC _ fields] -> do
+    ty <- recordToElmRecord fields
+    pure (ElmTypeAlias (nameToElmName name) (tyvarsToElmNames tvs) ty)
+
+  _ ->
+    throwE "Cannot make a type alias from a non-record type"
+
+conToElmCon :: TH.Con -> ExceptT String TH.Q ElmConstructor
 conToElmCon con0 =
   case con0 of
     TH.ForallC _ _ _ ->
       throwE "Existentially quantified types not supported"
 
     TH.NormalC name fields ->
-      (nameToElmName name ,) <$> traverse (typeToElmType . snd) fields
+      ElmConstructor (nameToElmName name) <$>
+        traverse (typeToElmType . snd) fields
 
     TH.RecC name fields -> do
-      fields' <-
-        for fields $ \(fname, _bang, fty) ->
-          (fname ,) <$> typeToElmType fty
-      pure (nameToElmName name, [elm_TRecord fields'])
+      ty <- recordToElmRecord fields
+      pure (ElmConstructor (nameToElmName name) [ty])
 
     _ ->
       error (show con0)
