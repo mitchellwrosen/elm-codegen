@@ -127,17 +127,71 @@ infoToElmDec ::
 infoToElmDec alias = \case
     TH.TyConI dec ->
       case dec of
+        TH.ClassD _ _ _ _ _ ->
+          throwE "Cannot generate an Elm type from a type class"
+
+        TH.ClosedTypeFamilyD _ _ ->
+          throwE "Cannot generate an Elm type from a type family"
+
         TH.DataD ctx name tvs mkind cons _ ->
           dataDecToElmDec alias ctx name tvs mkind cons
+
+        TH.DataFamilyD _ _ _ ->
+          throwE "Cannot generate an Elm type from a data family"
+
+        TH.DataInstD _ _ _ _ _ _ ->
+          throwE "Cannot generate an Elm type from a data family instance"
+
+        TH.DefaultSigD _ _ ->
+          throwE "Cannot generate an Elm type from a default signature"
+
+        TH.ForeignD _ ->
+          throwE "Cannot generate an Elm type from a foreign declaration"
 
         TH.FunD _ _ ->
           throwE "Cannot generate an Elm type from a function"
 
+        TH.InfixD _ _ ->
+          throwE "Cannot generate an Elm type from a fixity declaration"
+
+        TH.InstanceD _ _ _ _ ->
+          throwE "Cannot generate an Elm type from a type class instance"
+
         TH.NewtypeD ctx name tvs mkind cons _ ->
           dataDecToElmDec alias ctx name tvs mkind [cons]
 
+        TH.NewtypeInstD _ _ _ _ _ _ ->
+          throwE "Cannot generate an Elm type from a data family instance"
+
+        TH.OpenTypeFamilyD _ ->
+          throwE "Cannot generate an Elm type from a type family"
+
+        TH.PatSynD _ _ _ _ ->
+          throwE "Cannot generate an Elm type from a pattern synonym"
+
+        TH.PatSynSigD _ _ ->
+          throwE "Cannot generate an Elm type from a pattern synonym type signature"
+
+        TH.PragmaD _ ->
+          throwE "Cannot generate an Elm type from a pragma"
+
+        TH.RoleAnnotD _ _ ->
+          throwE "Cannot generate an Elm type from a role annotation"
+
+        TH.SigD _ _ ->
+          throwE "Cannot generate an Elm type from a type signature"
+
+        TH.StandaloneDerivD _ _ _ ->
+          throwE "Cannot generate an Elm type from a standalone deriving clause"
+
         TH.TySynD name tvs ty ->
           tysynToElmDec alias name tvs ty
+
+        TH.TySynInstD _ _ ->
+          throwE "Cannot generate an Elm type from a type family instance"
+
+        TH.ValD _ _ _ ->
+          throwE "Cannot generate an Elm type from a value"
 
     _ ->
       throwE "Not a type constructor"
